@@ -88,3 +88,40 @@ jobs:
         path: |
           dist/jitsi-meet.exe
           dist/latest.yml
+
+  create-nightly-release:
+    name: Create Nightly Release
+    needs: [build-linux, build-mac, build-windows]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+    - name: Delete existing nightly release
+      continue-on-error: true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release delete nightly --yes --repo ${{ github.repository }}
+        git push --delete origin nightly || true
+    - name: Create Nightly Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: Nightly Build
+        tag_name: nightly
+        files: |
+          artifacts/linux-binaries/*
+          artifacts/mac-binaries/*
+          artifacts/windows-binaries/*
+        draft: false
+        prerelease: true
+        body: |
+          Automated nightly build from master branch.
+          
+          **Commit:** ${{ github.sha }}
+          **Build Date:** ${{ github.event.head_commit.timestamp }}
+          
+          ⚠️ This is a development build and may be unstable.
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
